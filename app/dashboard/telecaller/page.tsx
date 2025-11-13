@@ -77,7 +77,7 @@ export default function TelecallerDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.callsToday}</div>
-            //  <p className="text-xs text-muted-foreground">Target: 20</p>
+              <p className="text-xs text-muted-foreground">today calls</p>
             </CardContent>
           </Card>
 
