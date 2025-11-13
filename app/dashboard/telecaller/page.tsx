@@ -25,7 +25,7 @@ export default function TelecallerDashboard() {
 
       try {
         const token = localStorage.getItem("token") // if you require auth
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/telecaller/stats` {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/telecaller/stats`, {
           method: "GET",
           headers: token ? { "Authorization": `Bearer ${token}` } : undefined,
         })
