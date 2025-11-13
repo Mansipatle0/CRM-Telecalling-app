@@ -20,7 +20,7 @@ export default function ManagerDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/manager/analytics", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/manager/analytics`, {
           credentials: "include",
         })
         const data = await res.json()
