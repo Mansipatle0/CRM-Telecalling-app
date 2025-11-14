@@ -1,79 +1,97 @@
-import express from "express"
-import bcryptjs from "bcryptjs"
-import { generateToken, verifyToken } from "../middleware/auth.js"
+import express from "express";
+import bcryptjs from "bcryptjs";
+import { generateToken, verifyToken } from "../middleware/auth.js";
+import { pool } from "../db/schema.js"; // adjust path as needed
 
-const router = express.Router()
+const router = express.Router();
 
-// Register
+// -----------------------------------------
+// REGISTER
+// -----------------------------------------
 router.post("/register", async (req, res) => {
   try {
-    const { email, password, name, role = "telecaller" } = req.body
+    const { email, password, name, role = "telecaller" } = req.body;
 
     if (!email || !password || !name) {
-      return res.status(400).json({ error: "Missing required fields" })
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const hashedPassword = await bcryptjs.hash(password, 10)
+    const hashedPassword = await bcryptjs.hash(password, 10);
 
-    const result = await req.db.run("INSERT INTO users (email, password, name, role) VALUES (?, ?, ?, ?)", [
-      email,
-      hashedPassword,
-      name,
-      role,
-    ])
+    // Insert user
+    const insertUser = await pool.query(
+      `INSERT INTO users (email, password, name, role)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, email, name, role`,
+      [email, hashedPassword, name, role]
+    );
 
-    const user = await req.db.get("SELECT id, email, name, role FROM users WHERE id = ?", [result.lastID])
+    const user = insertUser.rows[0];
 
-    const token = generateToken(user)
+    const token = generateToken(user);
 
-    res.json({ user, token })
+    res.json({ user, token });
   } catch (error) {
-    res.status(400).json({ error: error.message })
+    console.error("REGISTER ERROR:", error);
+    res.status(400).json({ error: error.message });
   }
-})
+});
 
-// Login
+// -----------------------------------------
+// LOGIN
+// -----------------------------------------
 router.post("/login", async (req, res) => {
   try {
-    const { email, password } = req.body
+    const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: "Email and password required" })
+      return res.status(400).json({ error: "Email and password required" });
     }
 
-    const user = await req.db.get("SELECT * FROM users WHERE email = ?", [email])
+    // Fetch user from PostgreSQL
+    const result = await pool.query(
+      `SELECT * FROM users WHERE email = $1`,
+      [email]
+    );
+
+    const user = result.rows[0];
 
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" })
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const isValidPassword = await bcryptjs.compare(password, user.password)
+    // Compare password
+    const isValidPassword = await bcryptjs.compare(password, user.password);
 
     if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid credentials" })
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const token = generateToken(user)
+    const token = generateToken(user);
 
     res.json({
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
       token,
-    })
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    console.error("LOGIN ERROR:", error);
+    res.status(500).json({ error: error.message });
   }
-})
+});
 
-// Verify token
+// -----------------------------------------
+// VERIFY TOKEN
+// -----------------------------------------
 router.post("/verify", (req, res) => {
-  const { token } = req.body
-  const decoded = verifyToken(token)
+  const { token } = req.body;
+
+  const decoded = verifyToken(token);
 
   if (decoded) {
-    res.json({ valid: true, user: decoded })
+    res.json({ valid: true, user: decoded });
   } else {
-    res.status(401).json({ error: "Invalid token" })
+    res.status(401).json({ error: "Invalid token" });
   }
-})
+});
 
-export default router
+export default router;
