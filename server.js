@@ -1,8 +1,8 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
-import sqlite3 from "sqlite3"
-import { open } from "sqlite"
+import pkg from "pg"
+const { Pool } = pkg
 import authRoutes from "./backend/routes/auth.js"
 import userRoutes from "./backend/routes/users.js"
 import contactRoutes from "./backend/routes/contacts.js"
@@ -33,18 +33,19 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }))
 
 // ✅ Initialize database and start server only after DB is ready
 async function startServer() {
-  const db = await open({
-    filename: "./backend/db/crm.db",
-    driver: sqlite3.Database,
-  })
+  const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }   // Render / Railway required
+})
 
-  await db.exec("PRAGMA foreign_keys = ON")
-  await initializeDatabase(db)
+
+  //await db.exec("PRAGMA foreign_keys = ON")
+  //await initializeDatabase(db)
   console.log("✅ Database initialized")
 
   // Make db accessible in routes
   app.use((req, res, next) => {
-    req.db = db
+    req.db = pool
     next()
   })
 
