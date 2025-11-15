@@ -1,86 +1,83 @@
-import pg from "pg";
-const { Pool } = pg;
-
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
-export async function initializeDatabase() {
+export async function initializeDatabase(db) {
   // Users table
-  await pool.query(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
       name TEXT NOT NULL,
       role TEXT NOT NULL CHECK(role IN ('admin', 'manager', 'telecaller')),
-      manager_id INTEGER REFERENCES users(id),
+      manager_id INTEGER,
       status TEXT DEFAULT 'active' CHECK(status IN ('active', 'inactive', 'suspended')),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (manager_id) REFERENCES users(id)
+    )
+  `)
 
   // Contacts table
-  await pool.query(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS contacts (
-      id SERIAL PRIMARY KEY,
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       email TEXT,
       phone TEXT NOT NULL,
       company TEXT,
       status TEXT DEFAULT 'new' CHECK(status IN ('new', 'contacted', 'qualified', 'converted', 'lost')),
-      assigned_to INTEGER REFERENCES users(id),
+      assigned_to INTEGER,
       source TEXT,
       notes TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (assigned_to) REFERENCES users(id)
+    )
+  `)
 
   // Calls table
-  await pool.query(`
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS calls (
-      id SERIAL PRIMARY KEY,
-      contact_id INTEGER NOT NULL REFERENCES contacts(id),
-      user_id INTEGER NOT NULL REFERENCES users(id),
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      contact_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
       duration INTEGER DEFAULT 0,
       status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'missed', 'failed')),
       call_type TEXT DEFAULT 'outbound' CHECK(call_type IN ('inbound', 'outbound')),
       notes TEXT,
       twilio_sid TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (contact_id) REFERENCES contacts(id),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `)
 
-  // Call logs
-  await pool.query(`
+  // Call recordings/logs table
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS call_logs (
-      id SERIAL PRIMARY KEY,
-      call_id INTEGER NOT NULL REFERENCES calls(id),
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      call_id INTEGER NOT NULL,
       action TEXT NOT NULL,
-      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      details TEXT
-    );
-  `);
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+      details TEXT,
+      FOREIGN KEY (call_id) REFERENCES calls(id)
+    )
+  `)
 
-  // KPIs
-  await pool.query(`
+  // Analytics/KPIs table
+  await db.exec(`
     CREATE TABLE IF NOT EXISTS kpis (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id),
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
       date DATE NOT NULL,
       calls_made INTEGER DEFAULT 0,
       calls_connected INTEGER DEFAULT 0,
       calls_converted INTEGER DEFAULT 0,
       total_talk_time INTEGER DEFAULT 0,
       contacts_created INTEGER DEFAULT 0,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `)
 
-  console.log("PostgreSQL Database schema created successfully");
+  console.log("Database schema created successfully")
 }
-
