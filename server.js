@@ -1,65 +1,76 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import authRoutes from "./backend/routes/auth.js";
-import userRoutes from "./backend/routes/users.js";
-import contactRoutes from "./backend/routes/contacts.js";
-import callRoutes from "./backend/routes/calls.js";
-import analyticsRoutes from "./backend/routes/analytics.js";
-import managerRoutes from "./backend/routes/managerRoutes.js";
-import adminDashboardRoutes from "./backend/routes/adminDashboard.js";
-import telecallerRoutes from "./backend/routes/telecallerRoutes.js";
+import express from "express"
+import cors from "cors"
+import dotenv from "dotenv"
+import sqlite3 from "sqlite3"
+import { open } from "sqlite"
+import authRoutes from "./backend/routes/auth.js"
+import userRoutes from "./backend/routes/users.js"
+import contactRoutes from "./backend/routes/contacts.js"
+import callRoutes from "./backend/routes/calls.js"
+import analyticsRoutes from "./backend/routes/analytics.js"
+import { initializeDatabase } from "./backend/db/schema.js"
+import managerRoutes from "./backend/routes/managerRoutes.js"
+import adminDashboardRoutes from "./backend/routes/adminDashboard.js"
+import telecallerRoutes from "./backend/routes/telecallerRoutes.js"
 
-import { pool, initializeDatabase } from "./backend/db/schema.js";
+dotenv.config()
 
-dotenv.config();
+const app = express()
+const PORT = process.env.PORT || 5000
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-
+// Middleware
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://crm-telecalling-app.onrender.com"],
+    origin: ["http://localhost:3000","https://crm-telecalling-app.onrender.com"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   })
-);
+)
 
-app.use(express.json());
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json())
+app.use(express.urlencoded({ limit: "50mb", extended: true }))
 
-// START SERVER AFTER DB INIT
+// ✅ Initialize database and start server only after DB is ready
 async function startServer() {
-  try {
-    console.log("⏳ Creating tables if missing...");
-    await initializeDatabase();  // ✅ NOW TABLES WILL BE CREATED
-    console.log("✅ Database initialized");
+  const db = await open({
+    filename: "./backend/db/crm.db",
+    driver: sqlite3.Database,
+  })
 
-    // Make pool available in all routes
-    app.use((req, res, next) => {
-      req.db = pool;
-      next();
-    });
+  await db.exec("PRAGMA foreign_keys = ON")
+  await initializeDatabase(db)
+  console.log("✅ Database initialized")
 
-    // ROUTES
-    app.use("/api/auth", authRoutes);
-    app.use("/api/users", userRoutes);
-    app.use("/api/contacts", contactRoutes);
-    app.use("/api/calls", callRoutes);
-    app.use("/api/analytics", analyticsRoutes);
-    app.use("/api/manager", managerRoutes);
-    app.use("/api/admin-dashboard", adminDashboardRoutes);
-    app.use("/api/telecaller", telecallerRoutes);
+  // Make db accessible in routes
+  app.use((req, res, next) => {
+    req.db = db
+    next()
+  })
 
-    // Health check
-    app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+  // Routes
+  app.use("/api/auth", authRoutes)
+  app.use("/api/users", userRoutes)
+  app.use("/api/contacts", contactRoutes)
+  app.use("/api/calls", callRoutes)
+  app.use("/api/analytics", analyticsRoutes)
+  app.use("/api/manager", managerRoutes)
+  app.use("/api/admin-dashboard", adminDashboardRoutes)
+  app.use("/api/telecaller", telecallerRoutes)
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-  } catch (err) {
-    console.error("❌ Failed to start server:", err);
-  }
+  // Health check
+  app.get("/api/health", (req, res) => res.json({ status: "ok" }))
+
+  // Global error handler
+  app.use((err, req, res, next) => {
+    console.error("Error:", err)
+    res.status(err.status || 500).json({ error: err.message || "Internal server error" })
+  })
+
+  // ✅ Start server only after DB ready
+  app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`))
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("❌ Failed to start server:", err)
+})
