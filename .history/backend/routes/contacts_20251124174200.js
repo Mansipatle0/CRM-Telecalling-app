@@ -4,10 +4,8 @@ import * as XLSX from "xlsx"
 import { authenticate, authorize } from "../middleware/auth.js"
 
 const router = express.Router()
+//const upload = multer({ storage: multer.memoryStorage() })
 
-// ========================================================
-// 📤 Multer: File Upload Config (50 MB limit)
-// ========================================================
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 } // 50 MB
@@ -38,6 +36,7 @@ router.get("/", authenticate, async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
+
 
 // ========================================================
 // ➕ CREATE SINGLE CONTACT
@@ -71,8 +70,9 @@ router.post("/", authenticate, async (req, res) => {
   }
 })
 
+
 // ========================================================
-// 📤 UPLOAD CONTACTS (EXCEL/CSV) - BATCH INSERT
+// 📤 UPLOAD CONTACTS (EXCEL/CSV)
 // ========================================================
 router.post(
   "/upload",
@@ -81,7 +81,9 @@ router.post(
   upload.single("file"),
   async (req, res) => {
     try {
-      if (!req.file) return res.status(400).json({ error: "No file uploaded" })
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" })
+      }
 
       const workbook = XLSX.read(req.file.buffer, { type: "buffer" })
       const worksheet = workbook.Sheets[workbook.SheetNames[0]]
@@ -90,54 +92,47 @@ router.post(
       const { assigned_to } = req.body
       let count = 0
 
-      // Prepare rows for batch insert
-      const rowsToInsert = data
-        .map((row) => {
-          const name = row.Name || row.name || row["Full Name"] || row["Contact Name"] || row["Customer Name"]
-          const phone = row.Phone || row.phone || row["Mobile"] || row["Mobile Number"] || row["Contact Number"]
-          if (!name || !phone) return null
+      for (const row of data) {
+        const name =
+          row.Name || row.name || row["Full Name"] || row["Contact Name"] || row["Customer Name"]
+        const email =
+          row.Email || row.email || row["E-mail"] || row["Email Address"] || ""
+        const phone =
+          row.Phone || row.phone || row["Mobile"] || row["Mobile Number"] || row["Contact Number"]
+        const company =
+          row.Company || row.company || row["Company Name"] || row["Organization"] || ""
 
-          const email = row.Email || row.email || row["E-mail"] || row["Email Address"] || ""
-          const company = row.Company || row.company || row["Company Name"] || row["Organization"] || ""
-
-          return [name, email, phone, company, "new", assigned_to || null, "bulk_upload"]
-        })
-        .filter(Boolean) // remove invalid rows
-
-      // Batch insert 50 rows at a time
-      const batchSize = 50
-      for (let i = 0; i < rowsToInsert.length; i += batchSize) {
-        const batch = rowsToInsert.slice(i, i + batchSize)
-        const values = batch
-          .map(
-            (_, idx) =>
-              `($${idx * 7 + 1}, $${idx * 7 + 2}, $${idx * 7 + 3}, $${idx * 7 + 4}, $${idx * 7 + 5}, $${idx * 7 + 6}, $${idx * 7 + 7})`
-          )
-          .join(",")
-
-        const flatValues = batch.flat()
+        if (!name || !phone) continue
 
         await req.db.query(
           `INSERT INTO contacts 
-            (name, email, phone, company, status, assigned_to, source) 
-           VALUES ${values}`,
-          flatValues
+            (name, email, phone, company, status, assigned_to, source, created_at)
+           VALUES ($1,$2,$3,$4,$5,$6,$7, NOW())`,
+          [
+            name,
+            email,
+            phone,
+            company,
+            "new",
+            assigned_to || null,
+            "bulk_upload"
+          ]
         )
 
-        count += batch.length
+        count++
       }
 
       res.json({
         message: "Contacts uploaded successfully",
         count,
       })
-
     } catch (error) {
       console.error("❌ Upload error:", error)
       res.status(400).json({ error: error.message })
     }
   }
 )
+
 
 // ========================================================
 // ✏️ UPDATE CONTACT
@@ -154,6 +149,7 @@ router.patch("/:id", authenticate, async (req, res) => {
     )
 
     const updated = await req.db.query("SELECT * FROM contacts WHERE id = $1", [req.params.id])
+
     res.json(updated.rows[0])
 
   } catch (error) {
@@ -161,6 +157,7 @@ router.patch("/:id", authenticate, async (req, res) => {
     res.status(500).json({ error: error.message })
   }
 })
+
 
 // ========================================================
 // ❌ DELETE CONTACT
