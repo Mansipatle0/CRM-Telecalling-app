@@ -14,8 +14,7 @@ const dashboards = {
     { icon: PhoneCall, label: "View Contacts", href: "/dashboard/admin/contacts" },
     { icon: BarChart3, label: "Analytics", href: "/dashboard/admin/analytics" },
     { icon: Settings, label: "Settings", href: "/dashboard/admin/settings" },
-    { icon: Upload, label: "View Excel Files", href: "/dashboard/admin/view-excel" },
-
+    { icon: Upload Contacts, label: "Settings", href: "/dashboard/admin/settings" },
   ],
   manager: [
     { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard/manager" },

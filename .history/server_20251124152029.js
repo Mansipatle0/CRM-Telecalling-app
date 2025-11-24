@@ -2,11 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
 import pkg from "pg";
-
-// Import your route files
 import authRoutes from "./backend/routes/auth.js";
 import userRoutes from "./backend/routes/users.js";
 import contactRoutes from "./backend/routes/contacts.js";
@@ -18,39 +14,20 @@ import telecallerRoutes from "./backend/routes/telecallerRoutes.js";
 import excelRoutes from "./backend/routes/excelRoutes.js";
 import { initializePostgresSchema } from "./backend/db/schema_pg.js";
 
-// ---------------------------
-// Resolve __dirname for ES modules
-// ---------------------------
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// ---------------------------
-// Load .env from absolute Windows path
-// ---------------------------
-const envPath = path.resolve("C:\\Users\\ved\\Downloads\\code (1)\\.env");
-console.log("Loading .env from:", envPath);
-
-dotenv.config({ path: envPath });
-
-// Debug: ensure DATABASE_URL is loaded
-console.log("DATABASE_URL:", process.env.DATABASE_URL);
-
-// ---------------------------
-// Express app setup
-// ---------------------------
+dotenv.config({
+  path: path.resolve("../.env") // relative path from backend/ to root
+});
+const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ---------------------------
-// CORS
-// ---------------------------
+// ---------------------------------------------
+// 🔥 CORS (Local + Render-safe)
+// ---------------------------------------------
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", process.env.CLIENT_URL || "*");
   res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,DELETE,OPTIONS"
-  );
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") return res.sendStatus(200);
@@ -60,23 +37,23 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ---------------------------
-// PostgreSQL pool
-// ---------------------------
-const { Pool } = pkg;
+// ---------------------------------------------
+// 🚀 PostgreSQL Pool (SSL Auto for Render)
+// ---------------------------------------------
+console.log("DATABASE_URL:", process.env.DATABASE_URL); // debug to ensure no spaces
+
 const isProduction = process.env.NODE_ENV === "production";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:
-    isProduction || process.env.FORCE_SSL
-      ? { rejectUnauthorized: false } // Render Postgres requires SSL
-      : false,
+  ssl: isProduction || process.env.FORCE_SSL
+    ? { rejectUnauthorized: false } // Render Postgres requires SSL
+    : false,                         // Local development
 });
 
-// ---------------------------
-// Start server
-// ---------------------------
+// ---------------------------------------------
+// 🚀 Start Server
+// ---------------------------------------------
 async function startServer() {
   try {
     const client = await pool.connect();
@@ -103,10 +80,9 @@ async function startServer() {
     app.use("/api/telecaller", telecallerRoutes);
     app.use("/api/excel", excelRoutes);
 
-    // Health check
     app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-    // Error handler
+    // Error Handler
     app.use((err, req, res, next) => {
       console.error("🔥 Error:", err);
       res.status(500).json({ error: err.message });
@@ -121,3 +97,4 @@ async function startServer() {
 }
 
 startServer();
+ 

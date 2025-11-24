@@ -6,7 +6,6 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import pkg from "pg";
 
-// Import your route files
 import authRoutes from "./backend/routes/auth.js";
 import userRoutes from "./backend/routes/users.js";
 import contactRoutes from "./backend/routes/contacts.js";
@@ -19,25 +18,25 @@ import excelRoutes from "./backend/routes/excelRoutes.js";
 import { initializePostgresSchema } from "./backend/db/schema_pg.js";
 
 // ---------------------------
-// Resolve __dirname for ES modules
+// Windows-safe __dirname
 // ---------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // ---------------------------
-// Load .env from absolute Windows path
+// Load .env from project root
 // ---------------------------
-const envPath = path.resolve("C:\\Users\\ved\\Downloads\\code (1)\\.env");
+const envPath = path.join(__dirname, "..", ".env");
 console.log("Loading .env from:", envPath);
-
 dotenv.config({ path: envPath });
 
-// Debug: ensure DATABASE_URL is loaded
+// Debug check
 console.log("DATABASE_URL:", process.env.DATABASE_URL);
 
 // ---------------------------
-// Express app setup
+// Postgres Pool
 // ---------------------------
+const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -61,21 +60,19 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------
-// PostgreSQL pool
-// ---------------------------
-const { Pool } = pkg;
+// PostgreSQL Pool (SSL)
 const isProduction = process.env.NODE_ENV === "production";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl:
     isProduction || process.env.FORCE_SSL
-      ? { rejectUnauthorized: false } // Render Postgres requires SSL
+      ? { rejectUnauthorized: false }
       : false,
 });
 
 // ---------------------------
-// Start server
+// Start Server
 // ---------------------------
 async function startServer() {
   try {
