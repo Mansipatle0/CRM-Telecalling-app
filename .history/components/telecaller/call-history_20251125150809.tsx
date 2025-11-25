@@ -65,7 +65,6 @@ export function CallHistory() {
     try {
       await apiCall(`/calls/${selectedCall.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notes: editNotes }),
       })
       setEditOpen(false)
