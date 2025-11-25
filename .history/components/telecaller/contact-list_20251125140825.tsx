@@ -147,7 +147,7 @@ export function ContactList({ onCallClick }: { onCallClick: (contactId: number) 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {contacts.map((contact, index) => (
+              {contacts.map((contact) => (
                 <TableRow key={contact.id}>
                   <TableCell>{index + 1}</TableCell>   {/* SERIAL NUMBER */}
                   <TableCell className="font-medium">{contact.name}</TableCell>

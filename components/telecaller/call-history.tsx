@@ -6,6 +6,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { formatDistanceToNow } from "date-fns"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 
 interface Call {
   id: number
@@ -20,6 +23,11 @@ export function CallHistory() {
   const [calls, setCalls] = useState<Call[]>([])
   const [stats, setStats] = useState({ total: 0, today: 0, avgDuration: 0 })
 
+  // Notes edit state
+  const [editOpen, setEditOpen] = useState(false)
+  const [selectedCall, setSelectedCall] = useState<Call | null>(null)
+  const [editNotes, setEditNotes] = useState("")
+
   useEffect(() => {
     fetchCalls()
   }, [])
@@ -29,7 +37,7 @@ export function CallHistory() {
       const data = await apiCall("/calls")
       setCalls(data)
 
-      // Calculate stats
+      // Stats
       const total = data.length
       const today = data.filter((c: Call) => {
         const callDate = new Date(c.created_at)
@@ -43,6 +51,26 @@ export function CallHistory() {
       setStats({ total, today, avgDuration })
     } catch (error) {
       console.error("Failed to fetch calls:", error)
+    }
+  }
+
+  const handleEditNotes = (call: Call) => {
+    setSelectedCall(call)
+    setEditNotes(call.notes || "")
+    setEditOpen(true)
+  }
+
+  const saveNotes = async () => {
+    if (!selectedCall) return
+    try {
+      await apiCall(`/calls/${selectedCall.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ notes: editNotes }),
+      })
+      setEditOpen(false)
+      fetchCalls()
+    } catch (error) {
+      console.error("Failed to update notes:", error)
     }
   }
 
@@ -116,8 +144,41 @@ export function CallHistory() {
                     <TableCell>
                       <Badge className={getStatusColor(call.status)}>{call.status}</Badge>
                     </TableCell>
-                    <TableCell>{formatDistanceToNow(new Date(call.created_at), { addSuffix: true })}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{call.notes || "—"}</TableCell>
+                    <TableCell>
+                      {formatDistanceToNow(new Date(call.created_at), { addSuffix: true })}
+                    </TableCell>
+
+                    <TableCell className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">{call.notes || "—"}</span>
+
+                      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditNotes(call)}
+                          >
+                            Edit
+                          </Button>
+                        </DialogTrigger>
+
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit Notes</DialogTitle>
+                          </DialogHeader>
+
+                          <Textarea
+                            value={editNotes}
+                            onChange={(e) => setEditNotes(e.target.value)}
+                            className="mt-2"
+                          />
+
+                          <Button className="mt-4 w-full" onClick={saveNotes}>
+                            Save
+                          </Button>
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
