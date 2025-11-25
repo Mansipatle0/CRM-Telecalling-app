@@ -5,14 +5,22 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import pkg from "pg";
 
+// ---------------------------
+// Resolve __dirname for ES modules
+// ---------------------------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env
-dotenv.config();
+// ---------------------------
+// Load .env automatically (LOCAL & RENDER both)
+// ---------------------------
+dotenv.config(); // <-- FIXED: No Windows path
 
 console.log("Loaded DATABASE_URL:", process.env.DATABASE_URL);
 
+// ---------------------------
+// Express app setup
+// ---------------------------
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -20,7 +28,7 @@ const PORT = process.env.PORT || 5000;
 // CORS
 // ---------------------------
 app.use(cors({
-  origin: process.env.NEXT_PUBLIC_API_URL || "*",
+  origin: process.env.CLIENT_URL || "*",
   credentials: true
 }));
 
@@ -40,7 +48,7 @@ const pool = new Pool({
 });
 
 // ---------------------------
-// Schema
+// DB Schema
 // ---------------------------
 import { initializePostgresSchema } from "./backend/db/schema_pg.js";
 
@@ -57,6 +65,9 @@ import adminDashboardRoutes from "./backend/routes/adminDashboard.js";
 import telecallerRoutes from "./backend/routes/telecallerRoutes.js";
 import excelRoutes from "./backend/routes/excelRoutes.js";
 
+// ---------------------------
+// Start server
+// ---------------------------
 async function startServer() {
   try {
     const client = await pool.connect();
@@ -64,9 +75,10 @@ async function startServer() {
 
     await initializePostgresSchema(client);
     console.log("🔥 Schema ready");
+
     client.release();
 
-    // Add pool to request
+    // Inject pool in req
     app.use((req, res, next) => {
       req.db = pool;
       next();
@@ -83,22 +95,14 @@ async function startServer() {
     app.use("/api/telecaller", telecallerRoutes);
     app.use("/api/excel", excelRoutes);
 
-    // Health
-app.get("/api/health", (req, res) => res.json({ status: "ok" }));
+    // Health endpoint
+    app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 
-// 404 Handler (Express 5 compatible)
-app.use((req, res) => {
-  res.status(404).json({
-    error: `Route ${req.originalUrl} not found`
-  });
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error("🔥 Server Error:", err);
-  res.status(500).json({ error: err.message });
-});
-
+    // Global error handler
+    app.use((err, req, res, next) => {
+      console.error("🔥 Error:", err);
+      res.status(500).json({ error: err.message });
+    });
 
     app.listen(PORT, () =>
       console.log(`🚀 Server running on port ${PORT}`)
