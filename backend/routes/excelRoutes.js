@@ -79,5 +79,10 @@ router.delete("/delete/:id", authenticate, authorize("admin", "manager"), async 
     res.status(500).json({ error: "Delete failed" });
   }
 });
-
+// ================================
+// ⚠️ Stub route to prevent 404
+// ================================
+router.get("/view-excel", (req, res) => {
+  res.status(200).json({ message: "Excel feature not enabled" });
+});
 export default router;
