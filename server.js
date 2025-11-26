@@ -93,7 +93,8 @@ async function startServer() {
     app.use("/api/manager", managerRoutes);
     app.use("/api/admin-dashboard", adminDashboardRoutes);
     app.use("/api/telecaller", telecallerRoutes);
-    app.use("/api/excel", excelRoutes);
+    //app.use("/api/excel", excelRoutes);
+    app.use("/dashboard/admin", excelRoutes);
 
     // Health endpoint
     app.get("/api/health", (req, res) => res.json({ status: "ok" }));
